@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🍷 私人酒窖庫存管理</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700&family=EB+Garamond:ital,wght@0,400;0,500&family=Noto+Serif+TC:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #f6f0e4;
+    --bg2:     #efe4d0;
+    --panel:   #fffcf6;
+    --wine:    #7c2233;
+    --wine2:   #9c3347;
+    --wine-tint: rgba(124,34,51,0.07);
+    --gold:    #a8792f;
+    --gold2:   #c9a227;
+    --gold-tint: rgba(168,121,47,0.10);
+    --ink:     #3a2e26;
+    --ink-soft:#6b5c4e;
+    --dim:     #ab9a86;
+    --border:  rgba(124,34,51,0.14);
+    --green:   #3f8f5f;
+    --amber:   #b9762a;
+    --red:     #b4382a;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    background:
+      radial-gradient(ellipse 900px 500px at 10% -10%, rgba(124,34,51,0.06), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 0%, rgba(168,121,47,0.08), transparent 55%),
+      var(--bg);
+    color:var(--ink); font-family:'EB Garamond',Georgia,serif; font-size:14px; min-height:100vh;
+  }
+
+  /* ── Header ─────────────────────────────────────────────────────────── */
+  #header { position:sticky; top:0; z-index:100; background:linear-gradient(90deg,#fbf7ee 0%,#f3e6cd 45%,#f6ecd8 60%,#fbf7ee 100%); border-bottom:2px solid var(--wine); padding:18px 24px 14px; box-shadow:0 4px 24px rgba(124,34,51,0.08); }
+  #header-top { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; }
+  .cave-label { font-family:'Cormorant Garamond',serif; font-size:9px; letter-spacing:5px; color:var(--gold); text-transform:uppercase; margin-bottom:4px; display:flex; align-items:center; gap:8px; }
+  .back-link { font-family:'EB Garamond',serif; letter-spacing:0; text-transform:none; font-size:11px; color:var(--wine2); cursor:pointer; text-decoration:none; border-bottom:1px dotted var(--wine2); }
+  h1 { font-family:'Noto Serif TC','Cormorant Garamond',serif; font-size:23px; font-weight:700; color:var(--wine); letter-spacing:1px; display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  h1 .merchant-suffix { color:var(--gold); font-size:18px; }
+  .subtitle { font-size:11px; color:var(--ink-soft); margin-top:4px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .sync-badge { font-size:9px; color:var(--green); background:rgba(63,143,95,0.10); border:1px solid rgba(63,143,95,0.3); border-radius:4px; padding:2px 8px; letter-spacing:1px; }
+  .stats { margin-left:auto; display:flex; gap:18px; align-items:flex-end; flex-wrap:wrap; }
+  .stat { text-align:right; }
+  .stat-label { font-size:8px; color:var(--dim); letter-spacing:2px; text-transform:uppercase; margin-bottom:2px; }
+  .stat-val { font-family:'Cormorant Garamond',serif; font-size:18px; font-weight:600; color:var(--ink); }
+  .stat-val.gold { color:var(--gold); }
+  .stat-val.wine { color:var(--wine); }
+  .stat-val.red  { color:var(--red); }
+  #sync-msg { font-size:11px; min-width:180px; text-align:right; }
+  #sync-msg.saving { color:var(--ink-soft); }
+  #sync-msg.saved  { color:var(--green); }
+  #sync-msg.error  { color:var(--red); }
+
+  #controls { margin-top:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  #search { background:var(--panel); border:1px solid rgba(124,34,51,0.25); border-radius:6px; padding:6px 12px; color:var(--ink); font-size:12px; font-family:inherit; width:230px; outline:none; }
+  #search::placeholder { color:var(--dim); }
+  #search:focus { border-color:var(--wine); }
+  .pill { background:var(--panel); border:1px solid rgba(124,34,51,0.25); border-radius:6px; color:var(--ink-soft); font-size:10px; padding:5px 12px; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:4px; }
+  .pill.active { background:var(--wine-tint); border-color:var(--wine); color:var(--wine); }
+  .badge { background:var(--wine); color:#fff; border-radius:10px; padding:1px 6px; font-size:9px; font-family:sans-serif; }
+  #add-btn, #add-merchant-btn { margin-left:auto; background:var(--wine); border:1px solid var(--wine); border-radius:6px; color:#fff; font-size:10px; padding:7px 16px; cursor:pointer; font-family:inherit; letter-spacing:0.5px; }
+  .icon-btn { background:var(--panel); border:1px solid rgba(124,34,51,0.25); border-radius:6px; color:var(--ink-soft); font-size:10px; padding:6px 11px; cursor:pointer; font-family:inherit; }
+  .icon-btn.danger { color:var(--red); border-color:rgba(180,56,42,0.3); }
+
+  #add-form, #add-merchant-form { display:none; margin-top:12px; background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:14px; }
+  #add-form.open, #add-merchant-form.open { display:block; }
+  .form-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; }
+  .form-grid label { display:block; font-size:8px; letter-spacing:1.5px; text-transform:uppercase; color:var(--dim); margin-bottom:3px; }
+  #add-form .form-actions, #add-merchant-form .form-actions { margin-top:10px; text-align:right; }
+  .inline-form-row { display:flex; gap:8px; align-items:flex-end; }
+  .inline-form-row > div { flex:1; }
+
+  /* ── Layout ─────────────────────────────────────────────────────────── */
+  #wrap { padding:22px 22px 60px; max-width:980px; margin:0 auto; }
+  .wgrid { display:flex; flex-direction:column; gap:14px; }
+
+  /* ── Row card (wine / merchant) ─────────────────────────────────────── */
+  .wcard { position:relative; background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px 20px 16px 22px; box-shadow:0 3px 14px rgba(124,34,51,0.06); overflow:hidden;
+    display:grid; grid-template-columns:200px 1fr 250px 118px; grid-template-areas:"head tags prices actions" "note note note note"; align-items:center; column-gap:18px; row-gap:8px; }
+  .wcard::before { content:''; position:absolute; left:0; top:0; bottom:0; width:5px; background:var(--type-color,var(--wine)); }
+  .wcard.editing { display:block; border-color:var(--gold); background:var(--gold-tint); }
+  .wcard.merchant-row { cursor:pointer; transition:box-shadow 0.15s, transform 0.15s; }
+  .wcard.merchant-row:hover { box-shadow:0 6px 22px rgba(124,34,51,0.14); transform:translateY(-1px); }
+
+  .wcard-head { grid-area:head; display:flex; gap:10px; align-items:flex-start; }
+  .medallion { flex:0 0 auto; width:44px; height:44px; border-radius:50%; background:radial-gradient(circle at 35% 30%,rgba(255,255,255,0.35),transparent 60%), var(--type-color,var(--wine)); border:1px solid rgba(255,255,255,0.4); display:flex; align-items:center; justify-content:center; font-family:'Cormorant Garamond',serif; font-weight:700; font-size:11.5px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.25); }
+  .wcard-titles { flex:1; min-width:0; }
+  .wname { font-family:'Noto Serif TC','Cormorant Garamond',serif; font-size:14.5px; font-weight:700; color:var(--ink); line-height:1.35; }
+  .wsub { font-size:10.5px; color:var(--ink-soft); margin-top:2px; }
+  .type-tag { display:inline-block; margin-top:6px; font-size:8.5px; letter-spacing:1px; padding:2px 7px; border-radius:20px; color:#fff; background:var(--type-color,var(--wine)); white-space:nowrap; }
+
+  .wcard-tags { grid-area:tags; display:flex; flex-wrap:wrap; gap:6px; align-content:center; }
+  .tag { font-size:10px; color:var(--ink-soft); background:rgba(124,34,51,0.05); border:1px solid rgba(124,34,51,0.12); border-radius:20px; padding:3px 9px; }
+  .tag.cond-新   { color:var(--green); border-color:rgba(63,143,95,0.35); background:rgba(63,143,95,0.09); }
+  .tag.cond-良   { color:var(--gold); border-color:rgba(168,121,47,0.4); background:rgba(168,121,47,0.10); }
+  .tag.cond-普   { color:var(--ink-soft); }
+  .tag.cond-留   { color:var(--red); border-color:rgba(180,56,42,0.35); background:rgba(180,56,42,0.08); }
+  .tag.cond-未   { color:var(--dim); font-style:italic; }
+
+  .wcard-prices { grid-area:prices; display:grid; grid-template-columns:repeat(2,1fr); gap:6px 14px; }
+  .wcard-prices .pitem label { display:block; font-size:8px; letter-spacing:1px; text-transform:uppercase; color:var(--dim); margin-bottom:2px; }
+  .wcard-prices .pitem b { font-size:12px; font-weight:600; color:var(--ink); }
+  .wcard-prices .pitem b.missing { color:var(--red); font-style:italic; font-weight:400; font-size:11px; }
+  .wcard-prices .pitem b.est { color:var(--gold); }
+  .wcard-prices .pitem.sub b { color:var(--wine); font-family:'Cormorant Garamond',serif; font-size:14.5px; }
+
+  .wcard-note { grid-area:note; font-size:10.5px; color:var(--ink-soft); font-style:italic; border-top:1px dashed rgba(124,34,51,0.15); padding-top:8px; }
+
+  .wcard-actions { grid-area:actions; display:flex; flex-direction:column; gap:5px; }
+  button { font-family:inherit; cursor:pointer; transition:opacity 0.15s; }
+  button:active, a:active { opacity:0.7; }
+  .btn-link   { text-decoration:none; text-align:center; background:rgba(124,34,51,0.05); border:1px solid rgba(124,34,51,0.25); border-radius:5px; color:var(--wine); font-size:10px; padding:5px 8px; display:inline-flex; align-items:center; justify-content:center; gap:4px; }
+  .btn-edit   { background:var(--panel); border:1px solid rgba(124,34,51,0.25); border-radius:5px; color:var(--wine2); font-size:10px; padding:5px 8px; }
+  .btn-del    { background:rgba(180,56,42,0.06); border:1px solid rgba(180,56,42,0.3); border-radius:5px; color:var(--red); font-size:10px; padding:5px 8px; }
+  .btn-save   { background:var(--wine); border:none; border-radius:5px; color:#fff; font-size:10px; font-weight:bold; padding:6px 14px; }
+  .btn-cancel { background:var(--panel); border:1px solid rgba(124,34,51,0.25); border-radius:5px; color:var(--ink-soft); font-size:10px; padding:6px 12px; }
+  .btn-confirm{ background:var(--wine); border:none; border-radius:5px; color:#fff; font-size:11px; font-weight:bold; padding:7px 18px; }
+  .btn-enter  { background:var(--wine); border:none; border-radius:5px; color:#fff; font-size:10px; padding:6px 10px; }
+
+  input.ei, select.ei { width:100%; background:#fffdf9; border:1px solid var(--gold); border-radius:5px; padding:5px 7px; color:var(--ink); font-size:11.5px; font-family:inherit; outline:none; }
+  input.ei::placeholder { color:var(--dim); }
+  .readonly-field { background:rgba(124,34,51,0.05); border:1px solid rgba(124,34,51,0.15); border-radius:5px; padding:5px 7px; font-size:11.5px; color:var(--ink-soft); }
+
+  .empty { text-align:center; padding:50px 20px; color:var(--dim); font-size:13px; }
+  .footer-note { margin-top:20px; font-size:9px; color:var(--dim); text-align:center; letter-spacing:1px; }
+
+  #loading { position:fixed; inset:0; background:var(--bg); z-index:200; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; }
+  #loading .wi { font-size:48px; animation:pulse 1.5s ease-in-out infinite; }
+  #loading p { color:var(--wine); font-size:13px; letter-spacing:3px; font-family:'Cormorant Garamond',serif; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  @media (max-width:900px) {
+    .wcard { grid-template-columns:1fr; grid-template-areas:"head" "tags" "prices" "actions" "note"; }
+    .wcard-actions { flex-direction:row; }
+    .wcard-actions button, .wcard-actions a { flex:1; }
+  }
+  @media (max-width:520px) {
+    .stats { margin-left:0; }
+    #header-top { flex-direction:column; align-items:flex-start; }
+    .wcard-prices { grid-template-columns:repeat(2,1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div id="loading"><div class="wi">🍷</div><p>從 Google Sheets 載入酒窖資料…</p></div>
+
+<div id="header">
+  <div id="header-top">
+    <div>
+      <div class="cave-label" id="cave-label">Cave Privée · 私人酒窖</div>
+      <h1 id="page-title">酒類庫存管理</h1>
+      <div class="subtitle" id="page-subtitle">
+        <span>寄倉明細</span>
+        <span class="sync-badge">☁ Google Sheets 同步</span>
+      </div>
+    </div>
+    <div class="stats" id="header-stats">
+      <div id="sync-msg"></div>
+    </div>
+  </div>
+  <div id="controls"></div>
+  <div id="add-form">
+    <div class="form-grid">
+      <div><label>酒名 *</label><input class="ei" id="nw-name" placeholder="酒名"></div>
+      <div><label>年份</label><input class="ei" id="nw-vin" placeholder="例：2018"></div>
+      <div><label>瓶數</label><input class="ei" id="nw-qty" type="number" placeholder="1"></div>
+      <div><label>類型</label>
+        <select class="ei" id="nw-type">
+          <option value="red">紅酒</option><option value="white">白酒</option>
+          <option value="sparkling">氣泡／香檳</option><option value="other">其他</option>
+        </select>
+      </div>
+      <div><label>酒莊／廠牌</label><input class="ei" id="nw-producer" placeholder="酒莊或廠牌"></div>
+      <div><label>產區</label><input class="ei" id="nw-region" placeholder="例：Bordeaux, Pauillac"></div>
+      <div><label>葡萄品種</label><input class="ei" id="nw-grape" placeholder="例：Cabernet Sauvignon"></div>
+      <div><label>品相</label>
+        <select class="ei" id="nw-condition">
+          <option value="">未評</option><option value="全新">全新</option>
+          <option value="良好">良好</option><option value="普通">普通</option><option value="需留意">需留意</option>
+        </select>
+      </div>
+      <div><label>成本單價</label><input class="ei" id="nw-price" type="number" placeholder="NT$"></div>
+      <div><label>市場估值（選填）</label><input class="ei" id="nw-market" type="number" placeholder="NT$"></div>
+      <div style="grid-column:1/-1"><label>備註</label><input class="ei" id="nw-note" placeholder="備註"></div>
+    </div>
+    <div class="form-actions"><button class="btn-confirm" onclick="addWine()">確認新增</button></div>
+  </div>
+  <div id="add-merchant-form">
+    <div class="inline-form-row">
+      <div><label style="display:block;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);margin-bottom:3px">酒商名稱 *</label>
+        <input class="ei" id="nm-name" placeholder="例：富亦酒窖"></div>
+      <button class="btn-confirm" onclick="addMerchant()">確認新增</button>
+    </div>
+  </div>
+</div>
+
+<div id="wrap">
+  <div class="wgrid" id="wgrid"></div>
+  <div class="footer-note">☁ 所有變更自動同步至 Google Sheets「酒庫管理」</div>
+</div>
+
+<script>
+var GAS = "https://script.google.com/macros/s/AKfycbwVUd3IpsVuH8w_kkSOumY1llmqFQsTkzKWrLXlJ1Aw5NxGqXLQcUzeFo5MV9mptOAK/exec";
+var DEFAULT_MERCHANT = "富亦酒窖";
+
+var DEFAULTS = [
+  {id:1,  name:"木桐堡二軍－小木桐紅酒",           vintage:"2021", qty:6,  type:"red",       merchant:DEFAULT_MERCHANT, producer:"", region:"", grape:"", condition:"", price:7600,  market:null, note:""},
+  {id:2,  name:"香檳王 禮盒版",                     vintage:"2015", qty:6,  type:"sparkling", merchant:DEFAULT_MERCHANT, producer:"", region:"", grape:"", condition:"", price:6583,  market:null, note:""},
+  {id:3,  name:"拉圖堡二軍",                         vintage:"2018", qty:6,  type:"red",       merchant:DEFAULT_MERCHANT, producer:"", region:"", grape:"", condition:"", price:8333,  market:null, note:""},
+  {id:4,  name:"GAJA Barbaresco 紅酒",               vintage:"2022", qty:6,  type:"red",       merchant:DEFAULT_MERCHANT, producer:"", region:"", grape:"", condition:"", price:9750,  market:null, note:""},
+  {id:5,  name:"香檳王",                             vintage:"2013", qty:6,  type:"sparkling", merchant:DEFAULT_MERCHANT, producer:"", region:"", grape:"", condition:"", price:6600,  market:null, note:""},
+  {id:6,  name:"卡隆塞居堡 愛心堡一軍紅酒",         vintage:"2015", qty:6,  type:"red",       merchant:DEFAULT_MERCHANT, producer:"", region:"", grape:"", condition:"", price:5242,  market:null, note:""},
+  {id:7,  name:"拉菲堡 一軍",                        vintage:"2022", qty:6,  type:"red",       merchant:DEFAULT_MERCHANT, producer:"", region:"", grape:"", condition:"", price:31150, market:null, note:""},
+  {id:8,  name:"法國都薩克堡 紅酒",                  vintage:"2018", qty:18, type:"red",       merchant:DEFAULT_MERCHANT, producer:"", region:"", grape:"", condition:"", price:1917,  market:null, note:""},
+  {id:9,  name:"法國都薩克堡 紅酒",                  vintage:"2021", qty:24, type:"red",       merchant:DEFAULT_MERCHANT, producer:"", region:"", grape:"", condition:"", price:1958,  market:null, note:""},
+  {id:10, name:"Château Pontet-Canet",               vintage:"2017", qty:12, type:"red",       merchant:DEFAULT_MERCHANT, producer:"", region:"", grape:"", condition:"", price:3800,  market:null, note:""},
+  {id:11, name:"卡比隆酒莊紅酒",                     vintage:"2022", qty:6,  type:"red",       merchant:DEFAULT_MERCHANT, producer:"", region:"", grape:"", condition:"", price:null,  market:null, note:""},
+  {id:12, name:"日日 秋津山田錦 生酛仕込 720ml",     vintage:"-",    qty:4,  type:"other",     merchant:DEFAULT_MERCHANT, producer:"", region:"", grape:"", condition:"", price:null,  market:null, note:""},
+  {id:13, name:"林奇貝居堡一軍紅酒",                 vintage:"2014", qty:12, type:"red",       merchant:DEFAULT_MERCHANT, producer:"", region:"", grape:"", condition:"", price:null,  market:null, note:""},
+  {id:14, name:"小布施 ちゃぶ台（赤）750ml",         vintage:"2024", qty:6,  type:"other",     merchant:DEFAULT_MERCHANT, producer:"", region:"", grape:"", condition:"", price:null,  market:null, note:""},
+  {id:15, name:"培瑞酒莊 柏卡斯特城堡 教皇新堡紅酒", vintage:"2022", qty:18, type:"red",       merchant:DEFAULT_MERCHANT, producer:"", region:"", grape:"", condition:"", price:3216,  market:null, note:""},
+];
+
+var wines     = [];
+var merchants = [];
+var editing   = null;
+var filter    = 'all';
+var saveTimer = null;
+var currentMerchant = null; // null = overview page
+
+var TYPE_META = {
+  red:       {label:'紅酒',    color:'#7c2233'},
+  white:     {label:'白酒',    color:'#9c8a3c'},
+  sparkling: {label:'氣泡／香檳', color:'#c9a227'},
+  other:     {label:'其他',    color:'#5c6b7a'},
+};
+
+// ── API（全部 GET，無 CORS 問題）─────────────────────────────────────────
+function apiGet() {
+  return fetch(GAS + '?action=get').then(function(r){ return r.json(); });
+}
+function apiSet(payload) {
+  var encoded = encodeURIComponent(JSON.stringify(payload));
+  return fetch(GAS + '?action=set&data=' + encoded).then(function(r){ return r.json(); });
+}
+
+// ── Sync ──────────────────────────────────────────────────────────────────
+function setSyncMsg(cls, txt) {
+  var el = document.getElementById('sync-msg');
+  el.className = cls; el.textContent = txt;
+}
+function scheduleSave() {
+  setSyncMsg('saving', '⏳ 同步中…');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(function() {
+    apiSet({merchants: merchants, wines: wines}).then(function(res) {
+      if (res.ok) {
+        setSyncMsg('saved', '✓ 已同步至 Google Sheets');
+        setTimeout(function(){ setSyncMsg('',''); }, 3000);
+      } else {
+        setSyncMsg('error', '⚠ 同步失敗：' + (res.error||''));
+      }
+    }).catch(function() {
+      setSyncMsg('error', '⚠ 網路錯誤');
+    });
+  }, 800);
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function ntd(n) { return 'NT$ ' + Number(n).toLocaleString('zh-TW'); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function normalize(w) {
+  var n = Object.assign({type:'red', merchant:'', producer:'', region:'', grape:'', condition:'', market:null, note:''}, w);
+  if (!n.merchant) n.merchant = DEFAULT_MERCHANT;
+  return n;
+}
+function deriveMerchants(list) {
+  var set = {};
+  set[DEFAULT_MERCHANT] = true;
+  list.forEach(function(w){ if (w.merchant) set[w.merchant] = true; });
+  return Object.keys(set).sort();
+}
+function conditionClass(c) {
+  if (c === '全新') return 'cond-新';
+  if (c === '良好') return 'cond-良';
+  if (c === '普通') return 'cond-普';
+  if (c === '需留意') return 'cond-留';
+  return 'cond-未';
+}
+function searchUrl(w) {
+  var q = encodeURIComponent([w.producer, w.name, w.vintage].filter(Boolean).join(' '));
+  return 'https://www.google.com/search?q=' + q + '+wine';
+}
+function winesOf(merchant) { return wines.filter(function(w){ return w.merchant === merchant; }); }
+
+// ── Routing ───────────────────────────────────────────────────────────────
+function parseRoute() {
+  var h = location.hash;
+  var m = h.match(/^#\/m\/(.+)$/);
+  if (m) return {view:'merchant', name: decodeURIComponent(m[1])};
+  return {view:'overview'};
+}
+function navigateOverview() { location.hash = '#/overview'; }
+function navigateMerchant(name) { location.hash = '#/m/' + encodeURIComponent(name); }
+window.addEventListener('hashchange', route);
+
+function route() {
+  editing = null;
+  var r = parseRoute();
+  if (r.view === 'merchant' && merchants.indexOf(r.name) !== -1) {
+    currentMerchant = r.name;
+    document.title = '🍷 酒類庫存管理・' + r.name;
+    renderMerchantHeader();
+    renderMerchantList();
+  } else {
+    currentMerchant = null;
+    document.title = '🍷 私人酒窖庫存管理';
+    renderOverviewHeader();
+    renderOverviewList();
+  }
+}
+
+// ── Overview page ─────────────────────────────────────────────────────────
+function renderOverviewHeader() {
+  document.getElementById('cave-label').innerHTML = 'Cave Privée · 私人酒窖';
+  document.getElementById('page-title').innerHTML = '酒類庫存管理';
+  document.getElementById('page-subtitle').innerHTML =
+    '<span>選擇酒商查看寄倉明細</span><span class="sync-badge">☁ Google Sheets 同步</span>';
+
+  var tq = wines.reduce(function(s,w){ return s+w.qty; }, 0);
+  var tv = wines.reduce(function(s,w){ return w.price ? s+w.qty*w.price : s; }, 0);
+  document.getElementById('header-stats').innerHTML =
+    '<div id="sync-msg"></div>'
+    + '<div class="stat"><div class="stat-label">酒商數</div><div class="stat-val" id="s-qty">'+merchants.length+' 家</div></div>'
+    + '<div class="stat"><div class="stat-label">總瓶數</div><div class="stat-val gold" id="s-val">'+tq+' 瓶</div></div>'
+    + '<div class="stat"><div class="stat-label">成本總值</div><div class="stat-val wine">'+ntd(tv)+'</div></div>';
+
+  document.getElementById('controls').innerHTML =
+    '<button id="add-merchant-btn" onclick="toggleAddMerchant()">＋ 新增酒商</button>';
+  document.getElementById('add-form').classList.remove('open');
+}
+
+function renderOverviewList() {
+  var grid = document.getElementById('wgrid');
+  grid.innerHTML = '';
+  if (!merchants.length) {
+    grid.innerHTML = '<div class="empty">尚未新增任何酒商，點右上角「＋ 新增酒商」開始建立</div>';
+    return;
+  }
+  merchants.forEach(function(m) {
+    var mw = winesOf(m);
+    var tq = mw.reduce(function(s,w){ return s+w.qty; }, 0);
+    var tv = mw.reduce(function(s,w){ return w.price ? s+w.qty*w.price : s; }, 0);
+    var ms = mw.filter(function(w){ return !w.price; }).length;
+
+    var card = document.createElement('div');
+    card.className = 'wcard merchant-row';
+    card.style.setProperty('--type-color', 'var(--wine)');
+    card.onclick = function(){ navigateMerchant(m); };
+    card.innerHTML =
+      '<div class="wcard-head">'
+      + '<div class="medallion">🏛</div>'
+      + '<div class="wcard-titles"><div class="wname">'+esc(m)+'</div>'
+      + '<div class="wsub">'+mw.length+' 款酒．'+tq+' 瓶</div>'
+      + '</div></div>'
+      + '<div class="wcard-tags">'
+      +   (ms>0 ? '<span class="tag cond-留">'+ms+' 款待填單價</span>' : '<span class="tag cond-新">單價已齊全</span>')
+      + '</div>'
+      + '<div class="wcard-prices">'
+      +   '<div class="pitem"><label>款數</label><b>'+mw.length+'</b></div>'
+      +   '<div class="pitem"><label>瓶數</label><b>'+tq+'</b></div>'
+      +   '<div class="pitem sub" style="grid-column:1/-1"><label>成本總值</label><b>'+(tv?ntd(tv):'—')+'</b></div>'
+      + '</div>'
+      + '<div class="wcard-actions">'
+      +   '<button class="btn-enter" onclick="event.stopPropagation();navigateMerchant(\''+m.replace(/'/g,"\\'")+'\')">進入 →</button>'
+      +   '<button class="icon-btn" onclick="event.stopPropagation();renameMerchant(\''+m.replace(/'/g,"\\'")+'\')">✎ 重新命名</button>'
+      +   '<button class="icon-btn danger" onclick="event.stopPropagation();deleteMerchant(\''+m.replace(/'/g,"\\'")+'\')">🗑 刪除</button>'
+      + '</div>';
+    grid.appendChild(card);
+  });
+}
+
+function toggleAddMerchant() {
+  var f = document.getElementById('add-merchant-form');
+  f.classList.toggle('open');
+  if (f.classList.contains('open')) document.getElementById('nm-name').focus();
+}
+function addMerchant() {
+  var input = document.getElementById('nm-name');
+  var name = input.value.trim();
+  if (!name) { alert('請輸入酒商名稱'); return; }
+  if (merchants.indexOf(name) === -1) {
+    merchants.push(name);
+    merchants.sort();
+    scheduleSave();
+  }
+  input.value = '';
+  document.getElementById('add-merchant-form').classList.remove('open');
+  navigateMerchant(name);
+}
+function renameMerchant(oldName) {
+  var newName = prompt('重新命名酒商：', oldName);
+  if (newName === null) return;
+  newName = newName.trim();
+  if (!newName || newName === oldName) return;
+  if (merchants.indexOf(newName) !== -1) { alert('已存在同名酒商'); return; }
+  merchants = merchants.map(function(m){ return m===oldName?newName:m; }).sort();
+  wines = wines.map(function(w){ return w.merchant===oldName ? Object.assign({},w,{merchant:newName}) : w; });
+  scheduleSave();
+  renderOverviewHeader();
+  renderOverviewList();
+}
+function deleteMerchant(name) {
+  var count = winesOf(name).length;
+  var msg = count>0 ? ('「'+name+'」還有 '+count+' 款酒，刪除酒商將一併刪除這些庫存資料，確認要刪除嗎？') : ('確認刪除酒商「'+name+'」？');
+  if (!confirm(msg)) return;
+  wines = wines.filter(function(w){ return w.merchant !== name; });
+  merchants = merchants.filter(function(m){ return m !== name; });
+  scheduleSave();
+  renderOverviewHeader();
+  renderOverviewList();
+}
+
+// ── Merchant page ─────────────────────────────────────────────────────────
+function renderMerchantHeader() {
+  document.getElementById('cave-label').innerHTML =
+    '<a class="back-link" onclick="navigateOverview()">← 回總覽</a> ・ Cave Privée · 私人酒窖';
+  document.getElementById('page-title').innerHTML =
+    '酒類庫存管理<span class="merchant-suffix">・'+esc(currentMerchant)+'</span>';
+  document.getElementById('page-subtitle').innerHTML =
+    '<span>寄倉明細</span><span class="sync-badge">☁ Google Sheets 同步</span>';
+
+  document.getElementById('header-stats').innerHTML =
+    '<div id="sync-msg"></div>'
+    + '<div class="stat"><div class="stat-label">總瓶數</div><div class="stat-val" id="s-qty">—</div></div>'
+    + '<div class="stat"><div class="stat-label">成本總值</div><div class="stat-val gold" id="s-val">—</div></div>'
+    + '<div class="stat" id="s-est-wrap" style="display:none"><div class="stat-label">估值總值</div><div class="stat-val wine" id="s-est">—</div></div>'
+    + '<div class="stat" id="s-miss-wrap" style="display:none"><div class="stat-label">待填單價</div><div class="stat-val red" id="s-miss">—</div></div>';
+
+  document.getElementById('controls').innerHTML =
+    '<input id="search" placeholder="搜尋酒名／酒莊／產區／年份…" oninput="renderMerchantList()">'
+    + '<button class="pill active" id="pill-all"     onclick="setFilter(\'all\')">全部</button>'
+    + '<button class="pill"        id="pill-missing" onclick="setFilter(\'missing\')">待填單價 <span class="badge" id="miss-badge" style="display:none"></span></button>'
+    + '<button class="pill"        id="pill-attn"    onclick="setFilter(\'attn\')">品相需留意</button>'
+    + '<button id="add-btn" onclick="toggleAdd()">＋ 新增酒款</button>';
+  document.getElementById('add-merchant-form').classList.remove('open');
+}
+
+function setFilter(f) {
+  filter = f;
+  document.getElementById('pill-all').classList.toggle('active', f==='all');
+  document.getElementById('pill-missing').classList.toggle('active', f==='missing');
+  document.getElementById('pill-attn').classList.toggle('active', f==='attn');
+  renderMerchantList();
+}
+
+function updateMerchantStats(list) {
+  var tq = list.reduce(function(s,w){ return s+w.qty; }, 0);
+  var tv = list.reduce(function(s,w){ return w.price ? s+w.qty*w.price : s; }, 0);
+  var te = list.reduce(function(s,w){ return w.market ? s+w.qty*w.market : s; }, 0);
+  var hasEst = list.some(function(w){ return w.market; });
+  var ms = list.filter(function(w){ return !w.price; }).length;
+
+  document.getElementById('s-qty').textContent = tq + ' 瓶';
+  document.getElementById('s-val').textContent = ntd(tv);
+  var ew = document.getElementById('s-est-wrap');
+  if (hasEst) { ew.style.display=''; document.getElementById('s-est').textContent = ntd(te); }
+  else { ew.style.display = 'none'; }
+  var mw = document.getElementById('s-miss-wrap');
+  var mb = document.getElementById('miss-badge');
+  if (ms > 0) {
+    mw.style.display=''; document.getElementById('s-miss').textContent = ms + ' 款';
+    mb.style.display=''; mb.textContent = ms;
+  } else { mw.style.display='none'; mb.style.display='none'; }
+}
+
+function renderMerchantList() {
+  var searchEl = document.getElementById('search');
+  var q = searchEl ? searchEl.value.toLowerCase() : '';
+  var grid = document.getElementById('wgrid');
+  grid.innerHTML = '';
+
+  var base = winesOf(currentMerchant);
+  var rows = base.filter(function(w) {
+    var hay = [w.name, w.vintage, w.producer, w.region, w.grape].join(' ').toLowerCase();
+    var passSearch = hay.includes(q);
+    var passFilter = filter==='all' || (filter==='missing' && !w.price) || (filter==='attn' && w.condition==='需留意');
+    return passSearch && passFilter;
+  });
+
+  if (!rows.length) {
+    grid.innerHTML = '<div class="empty">'+(base.length ? '無符合的記錄' : '這個酒商還沒有任何酒款，點「＋ 新增酒款」開始建立')+'</div>';
+    updateMerchantStats(base); return;
+  }
+
+  rows.forEach(function(w) {
+    var ed = editing === w.id;
+    var tm = TYPE_META[w.type] || TYPE_META.other;
+    var sub = w.price ? w.qty * w.price : null;
+    var card = document.createElement('div');
+    card.className = 'wcard' + (ed ? ' editing' : '');
+    card.style.setProperty('--type-color', tm.color);
+
+    if (ed) {
+      card.innerHTML = editForm(w);
+    } else {
+      var subLine = [w.producer, w.region].filter(Boolean).join(' · ');
+      var tagsHtml = ''
+        + (w.grape ? '<span class="tag">🍇 '+esc(w.grape)+'</span>' : '')
+        + '<span class="tag '+conditionClass(w.condition)+'">品相：'+esc(w.condition||'未評')+'</span>';
+
+      var marketHtml = w.market
+        ? '<div class="pitem"><label>市場估值</label><b class="est">'+ntd(w.market)+'</b></div>'
+        : '<div class="pitem"><label>市場估值</label><b class="missing">未填</b></div>';
+
+      card.innerHTML =
+        '<div class="wcard-head">'
+        + '<div class="medallion">'+esc(w.vintage||'—')+'</div>'
+        + '<div class="wcard-titles"><div class="wname">'+esc(w.name)+'</div>'
+        + (subLine ? '<div class="wsub">'+esc(subLine)+'</div>' : '')
+        + '<div class="type-tag">'+tm.label+'</div>'
+        + '</div>'
+        + '</div>'
+        + '<div class="wcard-tags">'+tagsHtml+'</div>'
+        + '<div class="wcard-prices">'
+        +   '<div class="pitem"><label>瓶數</label><b>'+w.qty+'</b></div>'
+        +   '<div class="pitem"><label>成本單價</label>'+(w.price?'<b>'+ntd(w.price)+'</b>':'<b class="missing">待填入</b>')+'</div>'
+        +   marketHtml
+        +   '<div class="pitem sub"><label>小計</label><b>'+(sub?ntd(sub):'—')+'</b></div>'
+        + '</div>'
+        + '<div class="wcard-actions">'
+        +   '<a class="btn-link" href="'+searchUrl(w)+'" target="_blank" rel="noopener">🔍 查詢</a>'
+        +   '<button class="btn-edit" onclick="startEdit('+w.id+')">✎ 編輯</button>'
+        +   '<button class="btn-del" onclick="delWine('+w.id+')">🗑 刪除</button>'
+        + '</div>'
+        + (w.note ? '<div class="wcard-note">'+esc(w.note)+'</div>' : '');
+    }
+    grid.appendChild(card);
+  });
+  updateMerchantStats(base);
+}
+
+function editForm(w) {
+  function opt(val, label, sel) { return '<option value="'+val+'"'+(sel?' selected':'')+'>'+label+'</option>'; }
+  var merchantOpts = merchants.map(function(m){ return opt(m, m, m===w.merchant); }).join('');
+  return ''
+    + '<div class="form-grid">'
+    + '<div><label>酒名</label><input class="ei" id="ed-name" value="'+esc(w.name)+'"></div>'
+    + '<div><label>年份</label><input class="ei" id="ed-vin" value="'+esc(w.vintage)+'"></div>'
+    + '<div><label>瓶數</label><input class="ei" id="ed-qty" type="number" value="'+w.qty+'"></div>'
+    + '<div><label>類型</label><select class="ei" id="ed-type">'
+    +   opt('red','紅酒',w.type==='red') + opt('white','白酒',w.type==='white')
+    +   opt('sparkling','氣泡／香檳',w.type==='sparkling') + opt('other','其他',w.type==='other')
+    + '</select></div>'
+    + '<div><label>酒商（寄倉商）</label><select class="ei" id="ed-merchant">'+merchantOpts+'</select></div>'
+    + '<div><label>酒莊／廠牌</label><input class="ei" id="ed-producer" value="'+esc(w.producer)+'"></div>'
+    + '<div><label>產區</label><input class="ei" id="ed-region" value="'+esc(w.region)+'"></div>'
+    + '<div><label>葡萄品種</label><input class="ei" id="ed-grape" value="'+esc(w.grape)+'"></div>'
+    + '<div><label>品相</label><select class="ei" id="ed-condition">'
+    +   opt('','未評',!w.condition) + opt('全新','全新',w.condition==='全新')
+    +   opt('良好','良好',w.condition==='良好') + opt('普通','普通',w.condition==='普通')
+    +   opt('需留意','需留意',w.condition==='需留意')
+    + '</select></div>'
+    + '<div><label>成本單價</label><input class="ei" id="ed-price" type="number" value="'+(w.price||'')+'"></div>'
+    + '<div><label>市場估值</label><input class="ei" id="ed-market" type="number" value="'+(w.market||'')+'"></div>'
+    + '<div style="grid-column:1/-1"><label>備註</label><input class="ei" id="ed-note" value="'+esc(w.note||'')+'"></div>'
+    + '</div>'
+    + '<div class="wcard-actions" style="flex-direction:row;margin-top:10px">'
+    +   '<button class="btn-save" onclick="commitEdit('+w.id+')">儲存</button>'
+    +   '<button class="btn-cancel" onclick="cancelEdit()">取消</button>'
+    + '</div>';
+}
+
+// ── Edit ──────────────────────────────────────────────────────────────────
+function startEdit(id)  { editing = id; renderMerchantList(); }
+function cancelEdit()   { editing = null; renderMerchantList(); }
+function commitEdit(id) {
+  var name  = document.getElementById('ed-name').value.trim();
+  var pv    = document.getElementById('ed-price').value;
+  var mv    = document.getElementById('ed-market').value;
+  var newMerchant = document.getElementById('ed-merchant').value;
+  wines = wines.map(function(w) {
+    return w.id !== id ? w : Object.assign({}, w, {
+      name:      name || w.name,
+      vintage:   document.getElementById('ed-vin').value.trim(),
+      qty:       parseInt(document.getElementById('ed-qty').value) || 0,
+      type:      document.getElementById('ed-type').value,
+      merchant:  newMerchant || w.merchant,
+      producer:  document.getElementById('ed-producer').value.trim(),
+      region:    document.getElementById('ed-region').value.trim(),
+      grape:     document.getElementById('ed-grape').value.trim(),
+      condition: document.getElementById('ed-condition').value,
+      price:     pv === '' ? null : Number(pv),
+      market:    mv === '' ? null : Number(mv),
+      note:      document.getElementById('ed-note').value.trim(),
+    });
+  });
+  editing = null;
+  renderMerchantList();
+  scheduleSave();
+}
+
+function delWine(id) {
+  if (!confirm('確認刪除此酒款？')) return;
+  wines = wines.filter(function(w){ return w.id !== id; });
+  renderMerchantList();
+  scheduleSave();
+}
+
+// ── Add wine ──────────────────────────────────────────────────────────────
+function toggleAdd() {
+  var f = document.getElementById('add-form');
+  var o = f.classList.toggle('open');
+  document.getElementById('add-btn').textContent = o ? '✕ 取消' : '＋ 新增酒款';
+}
+
+function addWine() {
+  var name = document.getElementById('nw-name').value.trim();
+  if (!name) { alert('請填入酒名'); return; }
+  var id = Math.max.apply(null, [0].concat(wines.map(function(w){ return w.id; }))) + 1;
+  var pv = document.getElementById('nw-price').value;
+  var mv = document.getElementById('nw-market').value;
+  wines.push({
+    id:        id,
+    name:      name,
+    vintage:   document.getElementById('nw-vin').value.trim() || '-',
+    qty:       parseInt(document.getElementById('nw-qty').value) || 1,
+    type:      document.getElementById('nw-type').value,
+    merchant:  currentMerchant,
+    producer:  document.getElementById('nw-producer').value.trim(),
+    region:    document.getElementById('nw-region').value.trim(),
+    grape:     document.getElementById('nw-grape').value.trim(),
+    condition: document.getElementById('nw-condition').value,
+    price:     pv === '' ? null : Number(pv),
+    market:    mv === '' ? null : Number(mv),
+    note:      document.getElementById('nw-note').value.trim(),
+  });
+  ['nw-name','nw-vin','nw-qty','nw-producer','nw-region','nw-grape','nw-price','nw-market','nw-note'].forEach(function(i){
+    document.getElementById(i).value = '';
+  });
+  document.getElementById('nw-type').value = 'red';
+  document.getElementById('nw-condition').value = '';
+  toggleAdd();
+  renderMerchantList();
+  scheduleSave();
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+setSyncMsg('saving', '☁ 連接 Google Sheets…');
+apiGet().then(function(res) {
+  if (res.ok && res.data) {
+    if (Array.isArray(res.data)) {
+      wines = res.data.map(normalize);
+      merchants = deriveMerchants(wines);
+    } else {
+      wines = (res.data.wines || []).map(normalize);
+      merchants = (res.data.merchants && res.data.merchants.length) ? res.data.merchants.slice() : deriveMerchants(wines);
+      wines.forEach(function(w){ if (merchants.indexOf(w.merchant) === -1) merchants.push(w.merchant); });
+      merchants.sort();
+    }
+    setSyncMsg('saved', '✓ 資料載入成功');
+  } else {
+    wines = DEFAULTS.map(function(w){ return Object.assign({}, w); });
+    merchants = deriveMerchants(wines);
+    setSyncMsg('saving', '⏳ 初始化資料…');
+    return apiSet({merchants: merchants, wines: wines}).then(function() {
+      setSyncMsg('saved', '✓ 初始資料已寫入');
+    });
+  }
+}).catch(function() {
+  setSyncMsg('error', '⚠ 無法連接，顯示預設資料');
+  wines = DEFAULTS.map(function(w){ return Object.assign({}, w); });
+  merchants = deriveMerchants(wines);
+}).then(function() {
+  setTimeout(function(){ setSyncMsg('',''); }, 3500);
+  document.getElementById('loading').style.display = 'none';
+  route();
+});
+</script>
+</body>
+</html>
