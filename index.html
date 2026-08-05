@@ -245,8 +245,13 @@ function apiGet() {
   return fetch(GAS + '?action=get').then(function(r){ return r.json(); });
 }
 function apiSet(payload) {
-  var encoded = encodeURIComponent(JSON.stringify(payload));
-  return fetch(GAS + '?action=set&data=' + encoded).then(function(r){ return r.json(); });
+  // 改用 POST + text/plain 送出完整 JSON body，避免資料變多時
+  // 塞進網址的 GET 寫法超過網址長度上限而觸發「網路錯誤」
+  return fetch(GAS, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  }).then(function(r){ return r.json(); });
 }
 
 // ── Sync ──────────────────────────────────────────────────────────────────
