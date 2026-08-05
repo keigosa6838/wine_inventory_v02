@@ -230,6 +230,7 @@ var merchants = [];
 var editing   = null;
 var filter    = 'all';
 var saveTimer = null;
+var pendingSync = false;
 var currentMerchant = null; // null = overview page
 
 var TYPE_META = {
@@ -255,9 +256,11 @@ function setSyncMsg(cls, txt) {
 }
 function scheduleSave() {
   setSyncMsg('saving', '⏳ 同步中…');
+  pendingSync = true;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(function() {
     apiSet({merchants: merchants, wines: wines}).then(function(res) {
+      pendingSync = false;
       if (res.ok) {
         setSyncMsg('saved', '✓ 已同步至 Google Sheets');
         setTimeout(function(){ setSyncMsg('',''); }, 3000);
@@ -265,10 +268,22 @@ function scheduleSave() {
         setSyncMsg('error', '⚠ 同步失敗：' + (res.error||''));
       }
     }).catch(function() {
-      setSyncMsg('error', '⚠ 網路錯誤');
+      pendingSync = false;
+      setSyncMsg('error', '⚠ 網路錯誤，變更尚未儲存，請勿關閉頁面，將自動重試');
+      // 網路錯誤時自動重試一次
+      saveTimer = setTimeout(scheduleSave, 2000);
     });
   }, 800);
 }
+
+// 尚有變更還沒同步完成時，離開頁面前提醒使用者
+window.addEventListener('beforeunload', function(e) {
+  if (pendingSync) {
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
+  }
+});
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 function ntd(n) { return 'NT$ ' + Number(n).toLocaleString('zh-TW'); }
