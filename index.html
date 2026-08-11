@@ -930,6 +930,8 @@ function recognizeLabel(prefix) {
 
 // ── Import (camera AI recognition / paste text) ─────────────────────────
 var importParsed = [];
+var importPhotoFile = null;
+var importPhotoThumb = '';
 
 function openImport() {
   document.getElementById('import-overlay').classList.add('open');
@@ -937,6 +939,8 @@ function openImport() {
   document.getElementById('import-step2').style.display = 'none';
   document.getElementById('imp-paste').value = '';
   document.getElementById('ocr-status').textContent = '';
+  importPhotoFile = null;
+  importPhotoThumb = '';
   switchImportTab('camera');
 }
 function closeImport() {
@@ -960,8 +964,16 @@ function apiRecognizeList(dataUrl) {
 function handleImportFile(evt) {
   var file = evt.target.files[0];
   if (!file) return;
+  importPhotoFile = file;
+  importPhotoThumb = '';
   var statusEl = document.getElementById('ocr-status');
   statusEl.textContent = '⏳ AI 辨識中，請稍候…';
+
+  // 順便準備一份小縮圖，如果最後只辨識出「一款酒」，就直接當作那支酒的頭像
+  compressImage(file, 480, 0.6, 46000, function(thumbUrl) {
+    importPhotoThumb = thumbUrl || '';
+  });
+
   compressImage(file, 1400, 0.82, 8000000, function(dataUrl) {
     if (!dataUrl) { statusEl.textContent = '⚠ 圖片處理失敗，請改用「貼上文字」輸入'; return; }
     apiRecognizeList(dataUrl).then(function(res) {
@@ -1080,18 +1092,43 @@ function commitImport() {
   var valid = importParsed.filter(function(w){ return w.name && w.name.trim(); });
   if (!valid.length) { alert('沒有可匯入的酒款'); return; }
 
+  // 只有「單一酒款」的匯入結果，才把拍的照片直接當作那支酒的頭像
+  // （一次辨識出多款酒時，同一張照片無法代表每一支酒，所以不自動帶入）
+  var singlePhoto = (valid.length === 1) ? importPhotoThumb : '';
+  var photoFile = importPhotoFile;
+
   var nextId = Math.max.apply(null, [0].concat(wines.map(function(w){ return w.id; })));
+  var newIds = [];
   valid.forEach(function(w) {
     nextId++;
     wines.push({
       id: nextId, name: w.name.trim(), vintage: w.vintage || '-', qty: w.qty || 1,
       type: 'red', merchant: merchant, producer: '', region: '', grape: '',
-      condition: '', price: w.price || null, market: null, note: '匯入自酒單掃描'
+      condition: '', price: w.price || null, market: null, note: '匯入自酒單掃描',
+      photo: singlePhoto, photoFull: ''
     });
+    newIds.push(nextId);
   });
   closeImport();
   scheduleSave();
   navigateMerchant(merchant);
+
+  // 背景把原圖上傳到 Drive，補上「原圖」連結（僅限單一酒款匯入且有照片時）
+  if (valid.length === 1 && photoFile) {
+    var idToPatch = newIds[0];
+    compressImage(photoFile, 1600, 0.85, 8000000, function(fullUrl) {
+      if (!fullUrl) return;
+      apiUploadPhoto(fullUrl, 'label_' + Date.now(), merchant).then(function(res) {
+        if (res.ok && res.url) {
+          wines = wines.map(function(w){ return w.id === idToPatch ? Object.assign({}, w, {photoFull: res.url}) : w; });
+          scheduleSave();
+          if (currentMerchant === merchant) renderMerchantList();
+        }
+      }).catch(function(){});
+    });
+  }
+  importPhotoFile = null;
+  importPhotoThumb = '';
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────
