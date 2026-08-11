@@ -2,7 +2,10 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="酒庫管理">
 <title>🍷 私人酒窖庫存管理</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700&family=EB+Garamond:ital,wght@0,400;0,500&family=Noto+Serif+TC:wght@500;700&display=swap" rel="stylesheet">
 <style>
@@ -181,6 +184,16 @@
   .photo-viewer.open { display:flex; }
   .photo-viewer img { max-width:90vw; max-height:85vh; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,0.5); }
   .photo-viewer-close { position:absolute; top:20px; right:24px; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.4); color:#fff; border-radius:50%; width:34px; height:34px; font-size:16px; }
+
+  /* ── Pull-to-refresh (home-screen app mode) ───────────────────────────── */
+  #pull-refresh-indicator {
+    position:fixed; top:0; left:0; right:0; z-index:500;
+    text-align:center; padding:10px 10px 8px; font-size:11px; letter-spacing:1px;
+    color:var(--wine); background:linear-gradient(180deg,var(--bg) 60%,transparent);
+    transform:translateY(-60px); opacity:0; pointer-events:none;
+    transition:transform 0.25s ease, opacity 0.25s ease;
+  }
+  #pull-refresh-indicator.snapping { transition:transform 0.25s ease, opacity 0.25s ease; }
 </style>
 </head>
 <body>
@@ -1131,6 +1144,59 @@ function commitImport() {
   importPhotoThumb = '';
 }
 
+// ── Pull-to-refresh（僅限「加入主畫面」的 App 模式）───────────────────────
+function isStandaloneApp() {
+  return window.navigator.standalone === true ||
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+}
+
+function setupPullToRefresh() {
+  if (!isStandaloneApp()) return; // 一般瀏覽器已有內建下拉更新，不重複加
+
+  var indicator = document.createElement('div');
+  indicator.id = 'pull-refresh-indicator';
+  indicator.textContent = '↓ 下拉重新整理';
+  document.body.appendChild(indicator);
+
+  var startY = 0, pulling = false, currentDist = 0;
+  var threshold = 70, maxDist = 110;
+
+  document.addEventListener('touchstart', function (e) {
+    if (window.scrollY <= 0 && !document.getElementById('import-overlay').classList.contains('open')
+        && !document.getElementById('photo-viewer').classList.contains('open')) {
+      startY = e.touches[0].clientY;
+      pulling = true;
+      indicator.classList.remove('snapping');
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchmove', function (e) {
+    if (!pulling) return;
+    var dy = e.touches[0].clientY - startY;
+    if (dy <= 0 || window.scrollY > 0) { pulling = false; indicator.style.opacity = 0; indicator.style.transform = 'translateY(-60px)'; return; }
+    currentDist = Math.min(dy * 0.5, maxDist);
+    indicator.style.transform = 'translateY(' + currentDist + 'px)';
+    indicator.style.opacity = Math.min(currentDist / threshold, 1);
+    indicator.textContent = currentDist > threshold ? '↑ 放開以重新整理' : '↓ 下拉重新整理';
+  }, { passive: true });
+
+  document.addEventListener('touchend', function () {
+    if (!pulling) return;
+    pulling = false;
+    indicator.classList.add('snapping');
+    if (currentDist > threshold) {
+      indicator.textContent = '🍷 重新整理中…';
+      indicator.style.transform = 'translateY(50px)';
+      indicator.style.opacity = 1;
+      setTimeout(function () { location.reload(); }, 250);
+    } else {
+      indicator.style.transform = 'translateY(-60px)';
+      indicator.style.opacity = 0;
+    }
+    currentDist = 0;
+  }, { passive: true });
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────
 setSyncMsg('saving', '☁ 連接 Google Sheets…');
 apiGet().then(function(res) {
@@ -1161,6 +1227,7 @@ apiGet().then(function(res) {
   setTimeout(function(){ setSyncMsg('',''); }, 3500);
   document.getElementById('loading').style.display = 'none';
   route();
+  setupPullToRefresh();
 });
 </script>
 </body>
