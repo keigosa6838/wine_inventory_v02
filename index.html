@@ -142,6 +142,45 @@
     #header-top { flex-direction:column; align-items:flex-start; }
     .wcard-prices { grid-template-columns:repeat(2,1fr); }
   }
+
+  /* ── Import modal ──────────────────────────────────────────────────── */
+  .import-overlay { display:none; position:fixed; inset:0; z-index:300; background:rgba(58,46,38,0.55); align-items:flex-start; justify-content:center; padding:26px 16px; overflow-y:auto; }
+  .import-overlay.open { display:flex; }
+  .import-modal { background:var(--panel); border-radius:14px; max-width:640px; width:100%; padding:20px 22px 24px; box-shadow:0 20px 60px rgba(0,0,0,0.35); }
+  .import-modal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .import-modal-head h2 { font-family:'Noto Serif TC','Cormorant Garamond',serif; font-size:17px; color:var(--wine); }
+  .import-close { background:none; border:none; color:var(--ink-soft); font-size:16px; padding:2px 6px; }
+  .import-tabs { display:flex; gap:8px; margin-bottom:12px; }
+  .import-tab { flex:1; background:var(--panel); border:1px solid rgba(124,34,51,0.25); border-radius:6px; color:var(--ink-soft); font-size:11px; padding:8px; }
+  .import-tab.active { background:var(--wine-tint); border-color:var(--wine); color:var(--wine); font-weight:bold; }
+  .import-file-btn { display:block; text-align:center; background:var(--wine-tint); border:1.5px dashed var(--wine); border-radius:8px; color:var(--wine); font-size:12px; padding:22px 10px; cursor:pointer; }
+  #imp-file { display:none; }
+  #ocr-status { margin-top:8px; font-size:11px; color:var(--ink-soft); text-align:center; min-height:14px; }
+  #imp-paste { width:100%; background:#fffdf9; border:1px solid rgba(124,34,51,0.25); border-radius:8px; padding:10px; color:var(--ink); font-size:12.5px; font-family:inherit; resize:vertical; outline:none; }
+  #imp-paste:focus { border-color:var(--wine); }
+  .import-modal-actions { margin-top:14px; text-align:right; display:flex; gap:8px; justify-content:flex-end; }
+  .import-merchant-row { display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
+  .import-merchant-row label { font-size:11px; color:var(--ink-soft); white-space:nowrap; }
+  .import-merchant-row select, .import-merchant-row input { flex:1; min-width:140px; }
+  #import-rows { display:flex; flex-direction:column; gap:6px; max-height:340px; overflow-y:auto; padding-right:2px; }
+  .import-row { display:flex; gap:6px; align-items:center; }
+  .import-row .icon-btn { padding:5px 8px; flex:0 0 auto; }
+  .import-hint { font-size:10px; color:var(--dim); margin-top:8px; line-height:1.6; }
+
+  /* ── Photo capture / medallion / lightbox ─────────────────────────────── */
+  .photo-input-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .photo-preview { width:56px; height:56px; border-radius:8px; background:rgba(124,34,51,0.06); border:1px dashed rgba(124,34,51,0.3); display:flex; align-items:center; justify-content:center; font-size:8px; color:var(--dim); text-align:center; overflow:hidden; flex:0 0 auto; }
+  .photo-preview img { width:100%; height:100%; object-fit:cover; }
+  .photo-btn { background:var(--panel); border:1px solid rgba(124,34,51,0.3); border-radius:6px; color:var(--wine); font-size:10.5px; padding:8px 12px; cursor:pointer; }
+  .photo-btn.ai-btn { background:var(--wine-tint); border-color:var(--wine); font-weight:bold; }
+  .photo-status { font-size:10px; color:var(--ink-soft); margin-top:6px; min-height:13px; }
+  .medallion.has-photo { background:none; padding:0; overflow:visible; border:none; position:relative; }
+  .medallion.has-photo img { width:100%; height:100%; object-fit:cover; border-radius:50%; border:1px solid rgba(255,255,255,0.6); cursor:pointer; display:block; }
+  .medallion-year { position:absolute; bottom:-4px; right:-6px; background:var(--type-color,var(--wine)); color:#fff; font-size:8px; font-family:'EB Garamond',serif; padding:1px 5px; border-radius:8px; border:1px solid #fff; white-space:nowrap; }
+  .photo-viewer { display:none; position:fixed; inset:0; z-index:320; background:rgba(20,14,10,0.85); align-items:center; justify-content:center; padding:24px; }
+  .photo-viewer.open { display:flex; }
+  .photo-viewer img { max-width:90vw; max-height:85vh; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,0.5); }
+  .photo-viewer-close { position:absolute; top:20px; right:24px; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.4); color:#fff; border-radius:50%; width:34px; height:34px; font-size:16px; }
 </style>
 </head>
 <body>
@@ -165,6 +204,18 @@
   <div id="controls"></div>
   <div id="add-form">
     <div class="form-grid">
+      <div style="grid-column:1/-1">
+        <label>酒標照片</label>
+        <div class="photo-input-row">
+          <div class="photo-preview" id="nw-photo-preview">尚未選擇照片</div>
+          <label class="photo-btn" for="nw-photo-camera">📷 拍照</label>
+          <input type="file" accept="image/*" capture="environment" id="nw-photo-camera" style="display:none" onchange="handlePhotoSelect(event,'nw')">
+          <label class="photo-btn" for="nw-photo-file">🖼 選擇相片</label>
+          <input type="file" accept="image/*" id="nw-photo-file" style="display:none" onchange="handlePhotoSelect(event,'nw')">
+          <button type="button" class="photo-btn ai-btn" id="nw-ai-btn" onclick="recognizeLabel('nw')">🤖 AI 辨識酒標</button>
+        </div>
+        <div class="photo-status" id="nw-photo-status"></div>
+      </div>
       <div><label>酒名 *</label><input class="ei" id="nw-name" placeholder="酒名"></div>
       <div><label>年份</label><input class="ei" id="nw-vin" placeholder="例：2018"></div>
       <div><label>瓶數</label><input class="ei" id="nw-qty" type="number" placeholder="1"></div>
@@ -201,6 +252,51 @@
 <div id="wrap">
   <div class="wgrid" id="wgrid"></div>
   <div class="footer-note">☁ 所有變更自動同步至 Google Sheets「酒庫管理」</div>
+</div>
+
+<div id="photo-viewer" class="photo-viewer" onclick="closePhotoViewer()">
+  <button class="photo-viewer-close" onclick="event.stopPropagation();closePhotoViewer()">✕</button>
+  <img id="photo-viewer-img" src="" alt="" onclick="event.stopPropagation()">
+</div>
+
+<div id="import-overlay" class="import-overlay">
+  <div class="import-modal">
+    <div class="import-modal-head">
+      <h2>📥 匯入酒單</h2>
+      <button class="import-close" onclick="closeImport()">✕</button>
+    </div>
+
+    <div id="import-step1">
+      <div class="import-tabs">
+        <button class="import-tab active" id="tab-camera" onclick="switchImportTab('camera')">📷 拍照掃描</button>
+        <button class="import-tab" id="tab-paste" onclick="switchImportTab('paste')">📋 貼上文字</button>
+      </div>
+      <div id="import-camera-pane">
+        <label class="import-file-btn" for="imp-file">📷 點此拍照，或選擇收據／酒單照片</label>
+        <input type="file" accept="image/*" capture="environment" id="imp-file" onchange="handleImportFile(event)">
+        <div id="ocr-status"></div>
+      </div>
+      <div id="import-paste-pane" style="display:none">
+        <textarea id="imp-paste" rows="8" placeholder="貼上你的購買文字，一行一款，例如：&#10;拉菲堡 2022 x6 NT$31150&#10;香檳王 2013 6瓶 6600"></textarea>
+      </div>
+      <div class="import-hint">辨識結果可能不完全準確（尤其拍照辨識），下一步可以逐筆檢查、修改或刪除，確認無誤後再匯入。</div>
+      <div class="import-modal-actions"><button class="btn-confirm" onclick="doParse()">解析內容 →</button></div>
+    </div>
+
+    <div id="import-step2" style="display:none">
+      <div class="import-merchant-row">
+        <label>放進哪個酒商？</label>
+        <select class="ei" id="imp-merchant"></select>
+        <input class="ei" id="imp-new-merchant" placeholder="輸入新酒商名稱" style="display:none">
+      </div>
+      <div id="import-rows"></div>
+      <div style="margin-top:8px"><button class="icon-btn" onclick="addImportRow()">＋ 手動新增一列</button></div>
+      <div class="import-modal-actions">
+        <button class="btn-cancel" onclick="backToImportStep1()">← 上一步</button>
+        <button class="btn-confirm" onclick="commitImport()">確認匯入（<span id="imp-count">0</span> 款）</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -294,7 +390,7 @@ window.addEventListener('beforeunload', function(e) {
 function ntd(n) { return 'NT$ ' + Number(n).toLocaleString('zh-TW'); }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function normalize(w) {
-  var n = Object.assign({type:'red', merchant:'', producer:'', region:'', grape:'', condition:'', market:null, note:''}, w);
+  var n = Object.assign({type:'red', merchant:'', producer:'', region:'', grape:'', condition:'', market:null, note:'', photo:'', photoFull:''}, w);
   if (!n.merchant) n.merchant = DEFAULT_MERCHANT;
   return n;
 }
@@ -360,7 +456,8 @@ function renderOverviewHeader() {
     + '<div class="stat"><div class="stat-label">成本總值</div><div class="stat-val wine">'+ntd(tv)+'</div></div>';
 
   document.getElementById('controls').innerHTML =
-    '<button id="add-merchant-btn" onclick="toggleAddMerchant()">＋ 新增酒商</button>';
+    '<button class="icon-btn" onclick="openImport()">📥 匯入酒單</button>'
+    + '<button id="add-merchant-btn" onclick="toggleAddMerchant()">＋ 新增酒商</button>';
   document.getElementById('add-form').classList.remove('open');
 }
 
@@ -466,6 +563,7 @@ function renderMerchantHeader() {
     + '<button class="pill active" id="pill-all"     onclick="setFilter(\'all\')">全部</button>'
     + '<button class="pill"        id="pill-missing" onclick="setFilter(\'missing\')">待填單價 <span class="badge" id="miss-badge" style="display:none"></span></button>'
     + '<button class="pill"        id="pill-attn"    onclick="setFilter(\'attn\')">品相需留意</button>'
+    + '<button class="icon-btn" onclick="openImport()">📥 匯入酒單</button>'
     + '<button id="add-btn" onclick="toggleAdd()">＋ 新增酒款</button>';
   document.getElementById('add-merchant-form').classList.remove('open');
 }
@@ -537,9 +635,13 @@ function renderMerchantList() {
         ? '<div class="pitem"><label>市場估值</label><b class="est">'+ntd(w.market)+'</b></div>'
         : '<div class="pitem"><label>市場估值</label><b class="missing">未填</b></div>';
 
+      var medallionHtml = w.photo
+        ? '<div class="medallion has-photo"><img src="'+w.photo+'" alt="" onclick="viewPhoto('+w.id+')"><span class="medallion-year">'+esc(w.vintage||'—')+'</span></div>'
+        : '<div class="medallion">'+esc(w.vintage||'—')+'</div>';
+
       card.innerHTML =
         '<div class="wcard-head">'
-        + '<div class="medallion">'+esc(w.vintage||'—')+'</div>'
+        + medallionHtml
         + '<div class="wcard-titles"><div class="wname">'+esc(w.name)+'</div>'
         + (subLine ? '<div class="wsub">'+esc(subLine)+'</div>' : '')
         + '<div class="type-tag">'+tm.label+'</div>'
@@ -564,11 +666,33 @@ function renderMerchantList() {
   updateMerchantStats(base);
 }
 
+function viewPhoto(id) {
+  var w = wines.find(function(x){ return x.id === id; });
+  if (!w || !(w.photo || w.photoFull)) return;
+  document.getElementById('photo-viewer-img').src = w.photoFull || w.photo;
+  document.getElementById('photo-viewer').classList.add('open');
+}
+function closePhotoViewer() {
+  document.getElementById('photo-viewer').classList.remove('open');
+}
+
 function editForm(w) {
   function opt(val, label, sel) { return '<option value="'+val+'"'+(sel?' selected':'')+'>'+label+'</option>'; }
   var merchantOpts = merchants.map(function(m){ return opt(m, m, m===w.merchant); }).join('');
   return ''
     + '<div class="form-grid">'
+    + '<div style="grid-column:1/-1"><label>酒標照片</label>'
+    +   '<div class="photo-input-row">'
+    +     '<div class="photo-preview" id="ed-photo-preview">'+(editPhoto ? '<img src="'+editPhoto+'" alt="">' : '尚未選擇照片')+'</div>'
+    +     '<label class="photo-btn" for="ed-photo-camera">📷 拍照</label>'
+    +     '<input type="file" accept="image/*" capture="environment" id="ed-photo-camera" style="display:none" onchange="handlePhotoSelect(event,\'ed\')">'
+    +     '<label class="photo-btn" for="ed-photo-file">🖼 選擇相片</label>'
+    +     '<input type="file" accept="image/*" id="ed-photo-file" style="display:none" onchange="handlePhotoSelect(event,\'ed\')">'
+    +     '<button type="button" class="photo-btn ai-btn" id="ed-ai-btn" onclick="recognizeLabel(\'ed\')">🤖 AI 辨識酒標</button>'
+    +     (editPhoto ? '<button type="button" class="icon-btn danger" onclick="editPhoto=\'\';editPhotoFull=\'\';document.getElementById(\'ed-photo-preview\').innerHTML=\'尚未選擇照片\';">移除照片</button>' : '')
+    +   '</div>'
+    +   '<div class="photo-status" id="ed-photo-status"></div>'
+    + '</div>'
     + '<div><label>酒名</label><input class="ei" id="ed-name" value="'+esc(w.name)+'"></div>'
     + '<div><label>年份</label><input class="ei" id="ed-vin" value="'+esc(w.vintage)+'"></div>'
     + '<div><label>瓶數</label><input class="ei" id="ed-qty" type="number" value="'+w.qty+'"></div>'
@@ -596,8 +720,16 @@ function editForm(w) {
 }
 
 // ── Edit ──────────────────────────────────────────────────────────────────
-function startEdit(id)  { editing = id; renderMerchantList(); }
-function cancelEdit()   { editing = null; renderMerchantList(); }
+var editPhoto = '';
+var editPhotoFull = '';
+function startEdit(id)  {
+  editing = id;
+  var w = wines.find(function(x){ return x.id === id; });
+  editPhoto = (w && w.photo) || '';
+  editPhotoFull = (w && w.photoFull) || '';
+  renderMerchantList();
+}
+function cancelEdit()   { editing = null; editPhoto = ''; editPhotoFull = ''; renderMerchantList(); }
 function commitEdit(id) {
   var name  = document.getElementById('ed-name').value.trim();
   var pv    = document.getElementById('ed-price').value;
@@ -617,9 +749,13 @@ function commitEdit(id) {
       price:     pv === '' ? null : Number(pv),
       market:    mv === '' ? null : Number(mv),
       note:      document.getElementById('ed-note').value.trim(),
+      photo:     editPhoto,
+      photoFull: editPhotoFull,
     });
   });
   editing = null;
+  editPhoto = '';
+  editPhotoFull = '';
   renderMerchantList();
   scheduleSave();
 }
@@ -632,10 +768,18 @@ function delWine(id) {
 }
 
 // ── Add wine ──────────────────────────────────────────────────────────────
+var nwPhoto = '';
+var nwPhotoFull = '';
 function toggleAdd() {
   var f = document.getElementById('add-form');
   var o = f.classList.toggle('open');
   document.getElementById('add-btn').textContent = o ? '✕ 取消' : '＋ 新增酒款';
+  if (o) {
+    nwPhoto = '';
+    nwPhotoFull = '';
+    document.getElementById('nw-photo-preview').innerHTML = '尚未選擇照片';
+    document.getElementById('nw-photo-status').textContent = '';
+  }
 }
 
 function addWine() {
@@ -658,15 +802,286 @@ function addWine() {
     price:     pv === '' ? null : Number(pv),
     market:    mv === '' ? null : Number(mv),
     note:      document.getElementById('nw-note').value.trim(),
+    photo:     nwPhoto,
+    photoFull: nwPhotoFull,
   });
   ['nw-name','nw-vin','nw-qty','nw-producer','nw-region','nw-grape','nw-price','nw-market','nw-note'].forEach(function(i){
     document.getElementById(i).value = '';
   });
   document.getElementById('nw-type').value = 'red';
   document.getElementById('nw-condition').value = '';
+  nwPhoto = '';
+  nwPhotoFull = '';
   toggleAdd();
   renderMerchantList();
   scheduleSave();
+}
+
+// ── Photo capture / compression / upload / AI recognition ───────────────
+function compressImage(file, maxDim, quality, sizeLimit, cb) {
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var img = new Image();
+    img.onload = function() { tryCompress(img, maxDim, quality); };
+    img.onerror = function() { cb(null); };
+    img.src = e.target.result;
+  };
+  reader.onerror = function() { cb(null); };
+  reader.readAsDataURL(file);
+
+  function tryCompress(img, md, q) {
+    var scale = Math.min(1, md / Math.max(img.width, img.height));
+    var w = Math.max(1, Math.round(img.width * scale));
+    var h = Math.max(1, Math.round(img.height * scale));
+    var canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    var dataUrl = canvas.toDataURL('image/jpeg', q);
+    if (dataUrl.length > sizeLimit && (md > 260 || q > 0.3)) {
+      tryCompress(img, Math.max(260, md - 80), Math.max(0.3, q - 0.12));
+    } else {
+      cb(dataUrl);
+    }
+  }
+}
+
+function apiUploadPhoto(dataUrl, name, merchant) {
+  return fetch(GAS + '?action=uploadPhoto', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ data: dataUrl, name: name, merchant: merchant || '' })
+  }).then(function(r){ return r.json(); });
+}
+
+function apiRecognize(dataUrl) {
+  return fetch(GAS + '?action=aiRecognize', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ data: dataUrl })
+  }).then(function(r){ return r.json(); });
+}
+
+function handlePhotoSelect(evt, prefix) {
+  var file = evt.target.files[0];
+  if (!file) return;
+  var previewEl = document.getElementById(prefix + '-photo-preview');
+  var statusEl  = document.getElementById(prefix + '-photo-status');
+  previewEl.textContent = '處理中…';
+
+  // 1) 立即產生小縮圖，存進 Sheets 用（無畫質原圖）
+  compressImage(file, 480, 0.6, 46000, function(thumbUrl) {
+    if (!thumbUrl || thumbUrl.length > 49000) {
+      alert('照片檔案過大或處理失敗，請換一張構圖較單純、解析度較低的照片再試一次');
+      previewEl.innerHTML = '尚未選擇照片';
+      return;
+    }
+    if (prefix === 'nw') { nwPhoto = thumbUrl; nwPhotoFull = ''; }
+    else { editPhoto = thumbUrl; editPhotoFull = ''; }
+    previewEl.innerHTML = '<img src="' + thumbUrl + '" alt="">';
+    statusEl.textContent = '⏳ 原圖上傳中…（點按頭像放大時會顯示原圖）';
+
+    // 2) 背景上傳高畫質版本到 Google Drive，完成後補上「原圖」連結
+    compressImage(file, 1600, 0.85, 8000000, function(fullUrl) {
+      if (!fullUrl) { statusEl.textContent = '⚠ 原圖處理失敗，僅保留縮圖'; return; }
+      apiUploadPhoto(fullUrl, 'label_' + Date.now(), currentMerchant).then(function(res) {
+        if (res.ok && res.url) {
+          if (prefix === 'nw') nwPhotoFull = res.url; else editPhotoFull = res.url;
+          statusEl.textContent = '✓ 原圖已上傳';
+        } else {
+          statusEl.textContent = '⚠ 原圖上傳失敗（' + (res.error||'') + '），僅保留縮圖';
+        }
+      }).catch(function() {
+        statusEl.textContent = '⚠ 原圖上傳失敗（網路錯誤），僅保留縮圖';
+      });
+    });
+  });
+}
+
+function recognizeLabel(prefix) {
+  var photoData = prefix === 'nw' ? nwPhoto : editPhoto;
+  if (!photoData) { alert('請先拍照或選擇酒標照片，再進行 AI 辨識'); return; }
+  var btn = document.getElementById(prefix + '-ai-btn');
+  var statusEl = document.getElementById(prefix + '-photo-status');
+  var origText = btn.textContent;
+  btn.textContent = '🤖 辨識中…'; btn.disabled = true;
+  statusEl.textContent = '⏳ AI 正在讀取酒標內容…';
+
+  apiRecognize(photoData).then(function(res) {
+    btn.textContent = origText; btn.disabled = false;
+    if (res.ok && res.fields) {
+      var f = res.fields;
+      if (f.name)     document.getElementById(prefix + '-name').value = f.name;
+      if (f.vintage)  document.getElementById(prefix + '-vin').value = f.vintage;
+      if (f.producer) document.getElementById(prefix + '-producer').value = f.producer;
+      if (f.region)   document.getElementById(prefix + '-region').value = f.region;
+      if (f.grape)    document.getElementById(prefix + '-grape').value = f.grape;
+      if (f.type && ['red','white','sparkling','other'].indexOf(f.type) !== -1) {
+        document.getElementById(prefix + '-type').value = f.type;
+      }
+      statusEl.textContent = '✓ AI 辨識完成，請核對欄位內容';
+    } else {
+      statusEl.textContent = '⚠ AI 辨識失敗：' + (res.error || '未知錯誤') + '，請手動輸入';
+    }
+  }).catch(function(err) {
+    btn.textContent = origText; btn.disabled = false;
+    statusEl.textContent = '⚠ AI 辨識失敗（網路錯誤）：' + err.toString();
+  });
+}
+
+// ── Import (camera OCR / paste text) ────────────────────────────────────
+var importParsed = [];
+var ocrWorker = null;
+
+function openImport() {
+  document.getElementById('import-overlay').classList.add('open');
+  document.getElementById('import-step1').style.display = '';
+  document.getElementById('import-step2').style.display = 'none';
+  document.getElementById('imp-paste').value = '';
+  document.getElementById('ocr-status').textContent = '';
+  switchImportTab('camera');
+}
+function closeImport() {
+  document.getElementById('import-overlay').classList.remove('open');
+}
+function switchImportTab(tab) {
+  document.getElementById('tab-camera').classList.toggle('active', tab==='camera');
+  document.getElementById('tab-paste').classList.toggle('active', tab==='paste');
+  document.getElementById('import-camera-pane').style.display = tab==='camera' ? '' : 'none';
+  document.getElementById('import-paste-pane').style.display = tab==='paste' ? '' : 'none';
+}
+
+function ensureTesseract() {
+  if (window.Tesseract) return Promise.resolve();
+  return new Promise(function(resolve, reject) {
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.onload = function(){ resolve(); };
+    s.onerror = function(){ reject(new Error('無法載入辨識模組（請確認網路連線）')); };
+    document.head.appendChild(s);
+  });
+}
+
+async function handleImportFile(evt) {
+  var file = evt.target.files[0];
+  if (!file) return;
+  var statusEl = document.getElementById('ocr-status');
+  statusEl.textContent = '⏳ 辨識中，請稍候…（第一次使用需下載辨識模型，約需 10–20 秒）';
+  try {
+    await ensureTesseract();
+    if (!ocrWorker) ocrWorker = await Tesseract.createWorker(['eng','chi_tra']);
+    var ret = await ocrWorker.recognize(file);
+    document.getElementById('imp-paste').value = ret.data.text;
+    statusEl.textContent = '✓ 辨識完成，已帶入下方文字，請確認內容';
+    switchImportTab('paste');
+  } catch (err) {
+    statusEl.textContent = '⚠ 辨識失敗（' + err.toString() + '），請改用「貼上文字」輸入';
+  }
+}
+
+function parseWineText(raw) {
+  var noiseRe = /(統一編號|發票號碼|營業人|收據|發票|小計|合計|總計|現金|找零|電話|地址|訂購|客服|備註|感謝|歡迎光臨|序號|統編|TEL|invoice|receipt)/i;
+  var lines = raw.split(/\n+/)
+    .map(function(s){ return s.trim(); })
+    .filter(function(s){ return s.length > 0 && !noiseRe.test(s) && !/^[\d\-\/:：. ]+$/.test(s); });
+
+  return lines.map(function(line) {
+    var work = line;
+
+    var vintage = '';
+    var vm = work.match(/(19|20)\d{2}/);
+    if (vm) { vintage = vm[0]; work = work.replace(vm[0], ' '); }
+
+    var qty = 1;
+    var qm = work.match(/(\d{1,3})\s*(瓶|支|入|箱|bottles?|btl)/i);
+    if (qm) { qty = parseInt(qm[1], 10) || 1; work = work.replace(qm[0], ' '); }
+    else {
+      var xm = work.match(/[×xX*＊]\s*(\d{1,3})/);
+      if (xm) { qty = parseInt(xm[1], 10) || 1; work = work.replace(xm[0], ' '); }
+    }
+
+    var price = null;
+    var pm = work.match(/(?:NT\$|NTD|\$|＄)?\s*(\d{1,3}(?:,\d{3})+|\d{3,6})(?!\d)/);
+    if (pm) { price = parseInt(pm[1].replace(/,/g,''), 10); work = work.replace(pm[0], ' '); }
+
+    var name = work
+      .replace(/[×xX*＊]/g, ' ')
+      .replace(/[\$NT＄]/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .replace(/^[\s\-.:：、,，]+|[\s\-.:：、,，]+$/g, '')
+      .trim();
+    if (!name) name = line.trim();
+
+    return { name: name, vintage: vintage, qty: qty, price: price };
+  });
+}
+
+function doParse() {
+  var raw = document.getElementById('imp-paste').value;
+  if (!raw.trim()) { alert('請先拍照掃描或貼上文字'); return; }
+  importParsed = parseWineText(raw);
+  if (!importParsed.length) {
+    alert('沒有解析出任何酒款，可以在下一步用「手動新增一列」自行輸入');
+  }
+  document.getElementById('import-step1').style.display = 'none';
+  document.getElementById('import-step2').style.display = '';
+  populateImportMerchantSelect();
+  renderImportRows();
+}
+function backToImportStep1() {
+  document.getElementById('import-step1').style.display = '';
+  document.getElementById('import-step2').style.display = 'none';
+}
+
+function populateImportMerchantSelect() {
+  var sel = document.getElementById('imp-merchant');
+  sel.innerHTML = merchants.map(function(m){ return '<option value="'+esc(m)+'">'+esc(m)+'</option>'; }).join('')
+    + '<option value="__new__">➕ 新增酒商…</option>';
+  if (currentMerchant) sel.value = currentMerchant;
+  sel.onchange = function() {
+    document.getElementById('imp-new-merchant').style.display = sel.value === '__new__' ? '' : 'none';
+  };
+  document.getElementById('imp-new-merchant').style.display = sel.value === '__new__' ? '' : 'none';
+}
+
+function renderImportRows() {
+  var wrap = document.getElementById('import-rows');
+  wrap.innerHTML = importParsed.map(function(w, i) {
+    return '<div class="import-row">'
+      + '<input class="ei" style="flex:2" value="'+esc(w.name)+'" placeholder="酒名" oninput="importParsed['+i+'].name=this.value">'
+      + '<input class="ei" style="flex:0 0 64px" value="'+esc(w.vintage)+'" placeholder="年份" oninput="importParsed['+i+'].vintage=this.value">'
+      + '<input class="ei" style="flex:0 0 54px" type="number" value="'+w.qty+'" placeholder="瓶數" oninput="importParsed['+i+'].qty=parseInt(this.value)||1">'
+      + '<input class="ei" style="flex:0 0 86px" type="number" value="'+(w.price||'')+'" placeholder="單價" oninput="importParsed['+i+'].price=this.value?Number(this.value):null">'
+      + '<button class="icon-btn danger" onclick="removeImportRow('+i+')">✕</button>'
+      + '</div>';
+  }).join('');
+  document.getElementById('imp-count').textContent = importParsed.length;
+}
+function removeImportRow(i) { importParsed.splice(i,1); renderImportRows(); }
+function addImportRow() { importParsed.push({name:'', vintage:'', qty:1, price:null}); renderImportRows(); }
+
+function commitImport() {
+  var sel = document.getElementById('imp-merchant');
+  var merchant = sel.value;
+  if (merchant === '__new__') {
+    merchant = document.getElementById('imp-new-merchant').value.trim();
+    if (!merchant) { alert('請輸入新酒商名稱'); return; }
+    if (merchants.indexOf(merchant) === -1) { merchants.push(merchant); merchants.sort(); }
+  }
+  var valid = importParsed.filter(function(w){ return w.name && w.name.trim(); });
+  if (!valid.length) { alert('沒有可匯入的酒款'); return; }
+
+  var nextId = Math.max.apply(null, [0].concat(wines.map(function(w){ return w.id; })));
+  valid.forEach(function(w) {
+    nextId++;
+    wines.push({
+      id: nextId, name: w.name.trim(), vintage: w.vintage || '-', qty: w.qty || 1,
+      type: 'red', merchant: merchant, producer: '', region: '', grape: '',
+      condition: '', price: w.price || null, market: null, note: '匯入自酒單掃描'
+    });
+  });
+  closeImport();
+  scheduleSave();
+  navigateMerchant(merchant);
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────
