@@ -279,7 +279,7 @@
       <div id="import-paste-pane" style="display:none">
         <textarea id="imp-paste" rows="8" placeholder="貼上你的購買文字，一行一款，例如：&#10;拉菲堡 2022 x6 NT$31150&#10;香檳王 2013 6瓶 6600"></textarea>
       </div>
-      <div class="import-hint">辨識結果可能不完全準確（尤其拍照辨識），下一步可以逐筆檢查、修改或刪除，確認無誤後再匯入。</div>
+      <div class="import-hint">拍照辨識由 AI 判讀，可以是收據、酒單，也可以直接拍一支或多支酒瓶；辨識結果可能不完全準確，下一步可以逐筆檢查、修改或刪除，確認無誤後再匯入。</div>
       <div class="import-modal-actions"><button class="btn-confirm" onclick="doParse()">解析內容 →</button></div>
     </div>
 
@@ -928,9 +928,8 @@ function recognizeLabel(prefix) {
   });
 }
 
-// ── Import (camera OCR / paste text) ────────────────────────────────────
+// ── Import (camera AI recognition / paste text) ─────────────────────────
 var importParsed = [];
-var ocrWorker = null;
 
 function openImport() {
   document.getElementById('import-overlay').classList.add('open');
@@ -950,32 +949,43 @@ function switchImportTab(tab) {
   document.getElementById('import-paste-pane').style.display = tab==='paste' ? '' : 'none';
 }
 
-function ensureTesseract() {
-  if (window.Tesseract) return Promise.resolve();
-  return new Promise(function(resolve, reject) {
-    var s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-    s.onload = function(){ resolve(); };
-    s.onerror = function(){ reject(new Error('無法載入辨識模組（請確認網路連線）')); };
-    document.head.appendChild(s);
-  });
+function apiRecognizeList(dataUrl) {
+  return fetch(GAS + '?action=aiRecognizeList', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ data: dataUrl })
+  }).then(function(r){ return r.json(); });
 }
 
-async function handleImportFile(evt) {
+function handleImportFile(evt) {
   var file = evt.target.files[0];
   if (!file) return;
   var statusEl = document.getElementById('ocr-status');
-  statusEl.textContent = '⏳ 辨識中，請稍候…（第一次使用需下載辨識模型，約需 10–20 秒）';
-  try {
-    await ensureTesseract();
-    if (!ocrWorker) ocrWorker = await Tesseract.createWorker(['eng','chi_tra']);
-    var ret = await ocrWorker.recognize(file);
-    document.getElementById('imp-paste').value = ret.data.text;
-    statusEl.textContent = '✓ 辨識完成，已帶入下方文字，請確認內容';
-    switchImportTab('paste');
-  } catch (err) {
-    statusEl.textContent = '⚠ 辨識失敗（' + err.toString() + '），請改用「貼上文字」輸入';
-  }
+  statusEl.textContent = '⏳ AI 辨識中，請稍候…';
+  compressImage(file, 1400, 0.82, 8000000, function(dataUrl) {
+    if (!dataUrl) { statusEl.textContent = '⚠ 圖片處理失敗，請改用「貼上文字」輸入'; return; }
+    apiRecognizeList(dataUrl).then(function(res) {
+      if (res.ok && res.items && res.items.length) {
+        importParsed = res.items.map(function(it) {
+          return {
+            name: it.name || '',
+            vintage: it.vintage || '',
+            qty: parseInt(it.qty, 10) || 1,
+            price: (it.price === null || it.price === undefined || it.price === '') ? null : Number(it.price)
+          };
+        });
+        statusEl.textContent = '';
+        document.getElementById('import-step1').style.display = 'none';
+        document.getElementById('import-step2').style.display = '';
+        populateImportMerchantSelect();
+        renderImportRows();
+      } else {
+        statusEl.textContent = '⚠ AI 辨識失敗（' + (res.error || '沒有辨識到任何酒款') + '），可以改用「貼上文字」輸入，或重新拍一張較清楚、正對標籤的照片再試';
+      }
+    }).catch(function(err) {
+      statusEl.textContent = '⚠ AI 辨識失敗（網路錯誤）：' + err.toString() + '，請改用「貼上文字」';
+    });
+  });
 }
 
 function parseWineText(raw) {
